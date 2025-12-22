@@ -1,0 +1,5 @@
+{
+  "name": "RedNote Pro Visual Clone",
+  "description": "A powerful visual editor cloning the RedNote style with automatic pagination, theme selection, and ZIP export capabilities.",
+  "requestFramePermissions": []
+}
