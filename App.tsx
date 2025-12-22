@@ -5,79 +5,128 @@ import saveAs from 'file-saver';
 import { EditorSidebar } from './components/EditorSidebar';
 import { Card } from './components/Card';
 import { DEFAULT_CONFIG, DEFAULT_CONTENT, THEMES } from './constants';
-import { AppConfig, ContentData } from './types';
-import { paginateText } from './utils/textUtils';
+import { AppConfig, ContentData, Theme } from './types';
 
 const App: React.FC = () => {
+  // State for all themes (built-in + saved)
+  const [availableThemes, setAvailableThemes] = useState<Theme[]>(THEMES);
+  
   const [config, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
   const [content, setContent] = useState<ContentData>(DEFAULT_CONTENT);
   const [isDownloading, setIsDownloading] = useState(false);
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Derived state for theme
-  const currentTheme = THEMES.find(t => t.id === config.themeId) || THEMES[0];
+  // Derived state for current theme object
+  const currentTheme = availableThemes.find(t => t.id === config.themeId) || availableThemes[0];
+
+  // Logic: Handle Theme Selection with strict Reset or Restore
+  const handleThemeSelect = (theme: Theme) => {
+    if (theme.savedConfig) {
+      // It's a saved custom theme, restore its specific config
+      setConfig(prev => ({
+        ...prev,
+        ...theme.savedConfig,
+        themeId: theme.id
+      }));
+    } else {
+      // It's a built-in theme, RESET all custom appearance settings
+      setConfig(prev => ({
+        ...prev,
+        themeId: theme.id,
+        customBgColor: '',
+        customTextColor: '',
+        customFontFamily: undefined, // Clear custom font
+        // We generally keep sizes and content, but reset styles
+      }));
+    }
+  };
+
+  // Logic: Save current style as new theme
+  const handleSaveTheme = (name: string) => {
+    const newThemeId = `custom-${Date.now()}`;
+    
+    // Create a snapshot of the current styling config
+    const savedConfigSnapshot: Partial<AppConfig> = {
+      customBgColor: config.customBgColor,
+      customTextColor: config.customTextColor,
+      customFontFamily: config.customFontFamily,
+      titleSize: config.titleSize,
+      bodySize: config.bodySize,
+    };
+
+    const newTheme: Theme = {
+      id: newThemeId,
+      name: name,
+      // Use current visual state for the preview card in sidebar
+      bgGradient: config.customBgColor ? '' : currentTheme.bgGradient, // If custom color, gradient is ignored in Card anyway, but for sidebar preview we might want a solid color representation if possible, or just keep original
+      // To make the sidebar button look correct, if it's a solid custom color, we can fake a gradient class or handle it in EditorSidebar. 
+      // For simplicity, we inherit the current theme's type and base properties, but attached savedConfig.
+      textColor: config.customTextColor || currentTheme.textColor,
+      accentColor: currentTheme.accentColor,
+      fontFamily: config.customFontFamily || currentTheme.fontFamily,
+      type: currentTheme.type,
+      savedConfig: savedConfigSnapshot
+    };
+
+    setAvailableThemes(prev => [...prev, newTheme]);
+    // Auto select the new theme
+    setConfig(prev => ({ ...prev, themeId: newThemeId }));
+  };
 
   // Logic: Paginate text
   const pages = useMemo(() => {
-    // Dynamic calculation: First page has less space due to title
-    const firstPageLines = Math.max(5, 14 - Math.ceil(config.titleSize / 10)); 
-    const otherPageLines = Math.floor(450 / (config.bodySize * 1.5)); // Approx height based calculation
-    
-    // We split the body roughly first
+    const linesPerPage = Math.floor(420 / (config.bodySize * 1.8));
     const allLines = content.body.split('\n');
-    const resultPages: string[] = [];
+    const contentPages: string[] = [];
     
     let currentChunk: string[] = [];
     let linesInCurrentPage = 0;
-    let isFirstPage = true;
+
+    const getVisualLines = (text: string) => {
+        if (!text) return 1;
+        const charsPerLine = Math.floor(310 / (config.bodySize * 0.7)); 
+        return Math.max(1, Math.ceil(text.length / charsPerLine));
+    };
 
     allLines.forEach(line => {
-      // Crude line wrapping estimation
-      const wrappedLines = Math.max(1, Math.ceil(line.length / (320 / (config.bodySize * 0.6))));
-      const limit = isFirstPage ? firstPageLines : otherPageLines;
-
-      if (linesInCurrentPage + wrappedLines > limit && currentChunk.length > 0) {
-        resultPages.push(currentChunk.join('\n'));
+      const visualLines = getVisualLines(line);
+      if (linesInCurrentPage + visualLines > linesPerPage && currentChunk.length > 0) {
+        contentPages.push(currentChunk.join('\n'));
         currentChunk = [line];
-        linesInCurrentPage = wrappedLines;
-        isFirstPage = false;
+        linesInCurrentPage = visualLines;
       } else {
         currentChunk.push(line);
-        linesInCurrentPage += wrappedLines;
+        linesInCurrentPage += visualLines;
       }
     });
     
     if (currentChunk.length > 0) {
-      resultPages.push(currentChunk.join('\n'));
+      contentPages.push(currentChunk.join('\n'));
     }
 
-    return resultPages.length > 0 ? resultPages : [''];
-  }, [content.body, config.titleSize, config.bodySize]);
+    return [null, ...(contentPages.length > 0 ? contentPages : [''])];
+  }, [content.body, config.bodySize]);
 
   // Download Handler
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
       const zip = new JSZip();
-      
-      // We process sequentially to not freeze browser too much
       for (let i = 0; i < pages.length; i++) {
         const cardElement = document.getElementById(`card-${i}`);
         if (cardElement) {
           const canvas = await html2canvas(cardElement, {
-            scale: 2, // High res
+            scale: 2,
             useCORS: true,
-            backgroundColor: null, // Transparent if needed, but card has bg
+            backgroundColor: null,
             logging: false
           });
-          
           const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
           if (blob) {
             zip.file(`rednote-card-${i + 1}.png`, blob);
           }
         }
       }
-
       const content = await zip.generateAsync({ type: 'blob' });
       saveAs(content, 'rednote-cards.zip');
     } catch (error) {
@@ -90,7 +139,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-100 font-sans">
-      {/* Sidebar */}
       <EditorSidebar
         config={config}
         setConfig={setConfig}
@@ -98,28 +146,31 @@ const App: React.FC = () => {
         setContent={setContent}
         onDownload={handleDownload}
         isDownloading={isDownloading}
+        availableThemes={availableThemes}
+        onThemeSelect={handleThemeSelect}
+        onSaveTheme={handleSaveTheme}
       />
 
-      {/* Preview Area */}
       <main className="flex-1 overflow-y-auto p-8 relative">
         <div className="flex flex-wrap justify-center gap-8 pb-20">
           {pages.map((pageContent, index) => (
             <div key={index} className="flex flex-col gap-2">
-               <span className="text-xs text-gray-400 font-mono text-center">PAGE {index + 1}</span>
+               <span className="text-xs text-gray-400 font-mono text-center">
+                 {index === 0 ? "COVER" : `PAGE ${index}`}
+               </span>
                <Card
-                  ref={el => cardsRef.current[index] = el}
+                  ref={(el) => { cardsRef.current[index] = el; }}
                   pageIndex={index}
-                  totalPages={pages.length}
+                  totalPages={pages.length - 1}
                   config={config}
                   content={content}
                   theme={currentTheme}
-                  pageContent={pageContent}
+                  pageContent={pageContent || ''}
                 />
             </div>
           ))}
         </div>
         
-        {/* Floating Action Tip (if mobile view simulated) */}
         <div className="fixed bottom-6 right-8 pointer-events-none md:hidden">
             <div className="bg-black/80 text-white px-4 py-2 rounded-full text-xs shadow-lg backdrop-blur">
                Scroll for more pages

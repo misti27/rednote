@@ -1,4 +1,15 @@
-export type FontFamily = 'Inter' | 'Noto Serif SC' | 'Ma Shan Zheng' | 'JetBrains Mono';
+export type FontFamily = 'Inter' | 'Noto Serif SC' | 'Ma Shan Zheng' | 'JetBrains Mono' | string;
+
+export interface AppConfig {
+  themeId: string;
+  titleSize: number;
+  bodySize: number;
+  customBgColor: string;
+  customTextColor: string;
+  customFontFamily?: string; // New field for custom font
+  coverImage: string | null;
+  overlayOpacity: number;
+}
 
 export interface Theme {
   id: string;
@@ -8,16 +19,8 @@ export interface Theme {
   accentColor: string;
   fontFamily: FontFamily;
   type: 'modern' | 'classic' | 'handwritten' | 'tech';
-}
-
-export interface AppConfig {
-  themeId: string;
-  titleSize: number;
-  bodySize: number;
-  customBgColor: string;
-  customTextColor: string;
-  coverImage: string | null;
-  overlayOpacity: number;
+  // Optional: if this theme is a saved custom one, store the config here
+  savedConfig?: Partial<AppConfig>; 
 }
 
 export interface ContentData {

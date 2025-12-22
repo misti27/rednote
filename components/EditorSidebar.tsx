@@ -1,7 +1,6 @@
-import React, { useRef } from 'react';
-import { Settings, Type, Image as ImageIcon, Trash2, Palette, Download } from 'lucide-react';
-import { THEMES } from '../constants';
-import { AppConfig, ContentData } from '../types';
+import React, { useRef, useState } from 'react';
+import { Settings, Type, Image as ImageIcon, Trash2, Palette, Download, Plus, Save, Upload } from 'lucide-react';
+import { AppConfig, ContentData, Theme } from '../types';
 
 interface EditorSidebarProps {
   config: AppConfig;
@@ -10,7 +9,21 @@ interface EditorSidebarProps {
   setContent: React.Dispatch<React.SetStateAction<ContentData>>;
   onDownload: () => void;
   isDownloading: boolean;
+  availableThemes: Theme[];
+  onThemeSelect: (theme: Theme) => void;
+  onSaveTheme: (name: string) => void;
 }
+
+const COMMON_FONTS = [
+  { name: '默认字体', value: '' },
+  { name: '思源宋体', value: 'Noto Serif SC' },
+  { name: '马善政毛笔', value: 'Ma Shan Zheng' },
+  { name: 'JetBrains Mono', value: 'JetBrains Mono' },
+  { name: 'Inter UI', value: 'Inter' },
+  { name: '微软雅黑', value: 'Microsoft YaHei' },
+  { name: '黑体', value: 'SimHei' },
+  { name: '楷体', value: 'KaiTi' },
+];
 
 export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   config,
@@ -18,9 +31,15 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
   content,
   setContent,
   onDownload,
-  isDownloading
+  isDownloading,
+  availableThemes,
+  onThemeSelect,
+  onSaveTheme
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fontInputRef = useRef<HTMLInputElement>(null);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [newThemeName, setNewThemeName] = useState('');
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,6 +49,32 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
         setConfig(prev => ({ ...prev, coverImage: reader.result as string }));
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleFontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const fontName = `CustomFont-${Date.now()}`;
+        const fontFace = new FontFace(fontName, buffer);
+        await fontFace.load();
+        document.fonts.add(fontFace);
+        setConfig(prev => ({ ...prev, customFontFamily: fontName }));
+        alert(`字体 "${file.name}" 加载成功！`);
+      } catch (err) {
+        console.error("Font load error", err);
+        alert("字体加载失败，请尝试其他文件 (推荐 .ttf, .woff)");
+      }
+    }
+  };
+
+  const submitSaveTheme = () => {
+    if (newThemeName.trim()) {
+        onSaveTheme(newThemeName);
+        setNewThemeName('');
+        setShowSaveDialog(false);
     }
   };
 
@@ -70,29 +115,82 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
         
         {/* Theme Selection */}
         <section>
-          <div className="flex items-center gap-2 mb-4 text-sm font-bold text-gray-500 uppercase tracking-wider">
-            <Palette size={14} />
-            风格选择
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-gray-500 uppercase tracking-wider">
+                <Palette size={14} />
+                风格选择
+            </div>
+            <button 
+                onClick={() => setShowSaveDialog(true)}
+                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"
+            >
+                <Save size={12} /> 保存当前风格
+            </button>
           </div>
+          
+          {/* Save Dialog */}
+          {showSaveDialog && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100 animate-fade-in">
+                  <label className="block text-xs font-bold text-blue-800 mb-2">为当前风格命名</label>
+                  <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={newThemeName}
+                        onChange={e => setNewThemeName(e.target.value)}
+                        placeholder="例如：我的红色主题"
+                        className="flex-1 px-2 py-1 text-sm border border-blue-200 rounded focus:outline-none focus:border-blue-500"
+                        autoFocus
+                      />
+                      <button 
+                        onClick={submitSaveTheme}
+                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                      >
+                          保存
+                      </button>
+                      <button 
+                        onClick={() => setShowSaveDialog(false)}
+                        className="px-2 py-1 text-blue-400 hover:text-blue-600"
+                      >
+                          取消
+                      </button>
+                  </div>
+              </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3">
-            {THEMES.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => setConfig({ ...config, themeId: theme.id })}
-                className={`relative h-12 rounded-lg text-xs font-medium transition-all duration-200 border-2 flex items-center justify-center overflow-hidden
-                  ${config.themeId === theme.id ? 'border-blue-600 ring-2 ring-blue-100 scale-[1.02]' : 'border-transparent hover:border-gray-200'}
-                  ${theme.id === 'minimal' ? 'bg-gray-50 text-gray-600' : ''}
-                `}
-                style={{
-                  background: theme.id !== 'minimal' ? undefined : '#f9fafb',
-                  color: theme.id === 'minimal' ? undefined : (theme.id === 'geek' || theme.id === 'cinematic' || theme.id === 'tech' ? 'white' : 'black')
-                }}
-              >
-                {/* Background Preview */}
-                 <div className={`absolute inset-0 opacity-80 ${theme.bgGradient} -z-10`} />
-                 {theme.name}
-              </button>
-            ))}
+            {availableThemes.map((theme) => {
+               // Check if this theme is 'selected' (id matches)
+               const isSelected = config.themeId === theme.id;
+               
+               // Determine visual background for the button
+               let buttonBg = theme.bgGradient;
+               let buttonColor = 'black';
+               
+               if (theme.savedConfig?.customBgColor) {
+                   buttonBg = ''; // clear gradient class
+               }
+
+               return (
+                  <button
+                    key={theme.id}
+                    onClick={() => onThemeSelect(theme)}
+                    className={`relative h-12 rounded-lg text-xs font-medium transition-all duration-200 border-2 flex items-center justify-center overflow-hidden
+                      ${isSelected ? 'border-blue-600 ring-2 ring-blue-100 scale-[1.02]' : 'border-transparent hover:border-gray-200'}
+                      ${theme.id === 'minimal' ? 'bg-gray-50 text-gray-600' : ''}
+                    `}
+                    style={{
+                      backgroundColor: theme.savedConfig?.customBgColor || (theme.id === 'minimal' ? '#f9fafb' : undefined),
+                      color: theme.savedConfig?.customTextColor || (theme.id === 'minimal' ? undefined : (theme.id === 'geek' || theme.id === 'cinematic' || theme.id === 'tech' ? 'white' : 'black'))
+                    }}
+                  >
+                    {/* Background Preview if it's a gradient class */}
+                     {!theme.savedConfig?.customBgColor && (
+                         <div className={`absolute inset-0 opacity-80 ${theme.bgGradient} -z-10`} />
+                     )}
+                     {theme.name}
+                  </button>
+               );
+            })}
           </div>
         </section>
 
@@ -104,6 +202,46 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
           </div>
           
           <div className="space-y-5">
+            {/* Font Selection */}
+            <div>
+               <label className="text-xs font-medium text-gray-600 mb-1.5 block">字体设置</label>
+               <div className="flex gap-2">
+                   <select 
+                      value={config.customFontFamily || ''} 
+                      onChange={(e) => setConfig({ ...config, customFontFamily: e.target.value || undefined })}
+                      className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                   >
+                       {COMMON_FONTS.map(f => (
+                           <option key={f.value} value={f.value}>{f.name}</option>
+                       ))}
+                       {config.customFontFamily && !COMMON_FONTS.find(f => f.value === config.customFontFamily) && (
+                           <option value={config.customFontFamily}>自定义上传字体</option>
+                       )}
+                   </select>
+                   
+                   <button 
+                     onClick={() => fontInputRef.current?.click()}
+                     className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                     title="上传字体文件 (.ttf, .otf, .woff)"
+                   >
+                       <Upload size={14} />
+                   </button>
+                   <input 
+                      ref={fontInputRef}
+                      type="file"
+                      accept=".ttf,.otf,.woff,.woff2"
+                      className="hidden"
+                      onChange={handleFontUpload}
+                   />
+               </div>
+               <p className="text-[10px] text-gray-400 mt-1">
+                   * 支持上传 .ttf, .otf, .woff 格式字体
+               </p>
+            </div>
+
+            <div className="h-px bg-gray-200 my-2"></div>
+
+            {/* Size Sliders */}
             <div>
               <div className="flex justify-between mb-1">
                 <label className="text-xs font-medium text-gray-600">标题字号</label>
@@ -134,6 +272,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({
               />
             </div>
 
+            {/* Colors */}
             <div className="grid grid-cols-2 gap-4 pt-2">
                <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">背景色</label>

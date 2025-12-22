@@ -22,7 +22,11 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({
   // Dynamic Styles
   const bgStyle = config.customBgColor ? { backgroundColor: config.customBgColor } : undefined;
   const textStyle = config.customTextColor ? { color: config.customTextColor } : { color: theme.textColor };
-  const fontFamily = theme.fontFamily;
+  
+  // Font Logic: Config overrides Theme
+  const fontFamily = config.customFontFamily || theme.fontFamily;
+  
+  const isCover = pageIndex === 0;
 
   return (
     <div 
@@ -35,8 +39,8 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({
         fontFamily: `"${fontFamily}", sans-serif`
       }}
     >
-      {/* Background Image Layer */}
-      {config.coverImage && (
+      {/* Background Image Layer - ONLY FOR COVER */}
+      {isCover && config.coverImage && (
         <div className="absolute inset-0 z-0">
           <img 
             src={config.coverImage} 
@@ -51,65 +55,90 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({
       )}
 
       {/* Content Container */}
-      <div className="relative z-10 h-full flex flex-col p-8">
+      <div className={`relative z-10 h-full flex flex-col p-8 ${isCover ? 'justify-center' : ''}`}>
         
-        {/* Header Section (Only on first page) */}
-        {pageIndex === 0 && (
-          <div className="mb-6 animate-fade-in">
-            <h1 
-              className="font-bold leading-tight mb-4 break-words"
-              style={{ fontSize: `${config.titleSize}px` }}
-            >
-              {content.title}
-            </h1>
+        {/* === COVER PAGE LAYOUT === */}
+        {isCover && (
+          <div className="animate-fade-in flex flex-col h-full relative">
             
-            <div className="flex items-center justify-between border-t border-current pt-3 opacity-80" style={{ borderColor: 'inherit' }}>
-               <span className="text-xs font-medium tracking-widest uppercase">{content.subtitle}</span>
-               <span className="text-xs font-bold px-2 py-1 rounded border border-current" style={{ borderColor: 'inherit' }}>
-                  {content.tag}
-               </span>
+            {/* Top Badge (Optional visual anchor) */}
+            <div className="absolute top-0 left-0 w-full flex justify-between items-start opacity-60">
+                <div className="w-8 h-8 border border-current rounded-full flex items-center justify-center">
+                    <span className="text-xs font-bold">R</span>
+                </div>
+                <span className="text-xs font-mono tracking-widest">{content.subtitle}</span>
+            </div>
+
+            {/* Main Title Area - Centered/Bottom weighted */}
+            <div className="mt-auto mb-12">
+               {/* Tag */}
+               <div className="mb-6">
+                 <span className="inline-block px-3 py-1 text-xs font-bold tracking-wider border-2 border-current uppercase">
+                    {content.tag}
+                 </span>
+               </div>
+
+               {/* Large Title */}
+               <h1 
+                  className="font-bold leading-[1.15] mb-6 break-words tracking-tight"
+                  style={{ fontSize: `${config.titleSize * 1.5}px` }} // Bigger on cover
+                >
+                  {content.title}
+                </h1>
+                
+                {/* Decorative Elements */}
+                <div className="w-16 h-2 bg-current opacity-80 mb-4" />
+                <p className="text-sm opacity-80 font-medium max-w-[80%] leading-relaxed">
+                   Visual Notes Collection
+                   <br/>
+                   Designed for Creators.
+                </p>
             </div>
           </div>
         )}
 
-        {/* Continuation Header (Subsequent pages) */}
-        {pageIndex > 0 && (
-           <div className="mb-4 opacity-50 flex items-center gap-2">
-              <span className="text-xs font-bold">{content.subtitle}</span>
-              <span className="w-1 h-1 rounded-full bg-current"/>
-              <span className="text-xs truncate max-w-[200px]">{content.title}</span>
-           </div>
+        {/* === CONTENT PAGE LAYOUT === */}
+        {!isCover && (
+           <>
+              {/* Header */}
+              <div className="mb-6 opacity-60 flex items-center gap-3 border-b border-current/20 pb-4">
+                  <span className="text-xs font-bold whitespace-nowrap">{content.subtitle}</span>
+                  <span className="w-px h-3 bg-current/50"/>
+                  <span className="text-xs truncate font-medium">{content.title}</span>
+              </div>
+
+              {/* Body Content */}
+              <div className="flex-1 whitespace-pre-wrap leading-relaxed overflow-hidden">
+                <p 
+                  style={{ fontSize: `${config.bodySize}px`, lineHeight: 1.8 }}
+                  className={theme.type === 'modern' ? 'font-normal' : ''}
+                >
+                  {pageContent}
+                </p>
+              </div>
+
+              {/* Footer / Pagination */}
+              <div className="mt-auto pt-6 flex justify-between items-end opacity-60">
+                <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-current"/>
+                    <span className="text-[10px] font-mono tracking-widest uppercase truncate max-w-[150px]">
+                      {content.tag}
+                    </span>
+                </div>
+                <span className="text-lg font-bold font-mono opacity-80">
+                  {pageIndex}<span className="text-xs opacity-50 mx-1">/</span>{totalPages}
+                </span>
+              </div>
+           </>
         )}
 
-        {/* Body Content */}
-        <div className="flex-1 whitespace-pre-wrap leading-relaxed overflow-hidden">
-           <p 
-            style={{ fontSize: `${config.bodySize}px`, lineHeight: 1.8 }}
-            className={theme.type === 'modern' ? 'font-normal' : ''}
-           >
-             {pageContent}
-           </p>
-        </div>
-
-        {/* Footer / Pagination */}
-        <div className="mt-auto pt-6 flex justify-between items-end opacity-60">
-           <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-current animate-pulse"/>
-              <span className="text-[10px] font-mono tracking-widest">REDNOTE PRO CLONE</span>
-           </div>
-           <span className="text-xl font-bold font-mono opacity-80">
-             {pageIndex + 1}<span className="text-xs opacity-50 mx-1">/</span>{totalPages}
-           </span>
-        </div>
-
-        {/* Decorative Watermark (Optional based on theme) */}
-        {theme.type === 'tech' && (
-          <div className="absolute top-0 right-0 p-4 opacity-20 pointer-events-none">
-            <svg width="60" height="60" viewBox="0 0 100 100" fill="currentColor">
-              <rect x="10" y="10" width="20" height="20" />
-              <rect x="40" y="10" width="20" height="20" />
-              <rect x="70" y="10" width="20" height="20" />
-              <rect x="10" y="40" width="20" height="20" />
+        {/* Decorative Watermark (Optional based on theme) - Only on Content Pages to keep Cover clean? Or both? */}
+        {theme.type === 'tech' && !isCover && (
+          <div className="absolute bottom-20 right-0 p-4 opacity-10 pointer-events-none">
+            <svg width="120" height="120" viewBox="0 0 100 100" fill="currentColor">
+               <path d="M10 10 H 90 V 90 H 10 Z" fill="none" stroke="currentColor" strokeWidth="1"/>
+               <path d="M20 20 H 80 V 80 H 20 Z" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+               <circle cx="50" cy="50" r="10" />
             </svg>
           </div>
         )}
