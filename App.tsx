@@ -75,6 +75,7 @@ const App: React.FC = () => {
 
   // Logic: Paginate text
   const pages = useMemo(() => {
+    // Estimate lines per page based on body font size and line height
     const linesPerPage = Math.floor(420 / (config.bodySize * 1.8));
     const allLines = content.body.split('\n');
     const contentPages: string[] = [];
@@ -82,14 +83,30 @@ const App: React.FC = () => {
     let currentChunk: string[] = [];
     let linesInCurrentPage = 0;
 
-    const getVisualLines = (text: string) => {
-        if (!text) return 1;
+    const getVisualLines = (text: string, isHeading: boolean) => {
+        if (!text) return 1; // Empty line takes up space
+        if (isHeading) return 3; // Headings take more vertical space (size + margins)
+        
         const charsPerLine = Math.floor(310 / (config.bodySize * 0.7)); 
         return Math.max(1, Math.ceil(text.length / charsPerLine));
     };
 
     allLines.forEach(line => {
-      const visualLines = getVisualLines(line);
+      // Handle Manual Page Break
+      if (line.trim() === '---' || line.trim() === '***') {
+          if (currentChunk.length > 0) {
+              contentPages.push(currentChunk.join('\n'));
+              currentChunk = [];
+              linesInCurrentPage = 0;
+          }
+          // If page break is the first thing, we just skip it to avoid empty page at start
+          // unless we want to force empty pages. For now, assume split.
+          return;
+      }
+
+      const isHeading = line.startsWith('## ');
+      const visualLines = getVisualLines(line, isHeading);
+      
       if (linesInCurrentPage + visualLines > linesPerPage && currentChunk.length > 0) {
         contentPages.push(currentChunk.join('\n'));
         currentChunk = [line];

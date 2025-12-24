@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RedNote Pro - Visual Clone Engineer</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Dependencies (React, ReactDOM, Babel, Helpers) -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Switch to html-to-image for better rendering fidelity (WYSIWYG) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+    <style>
+      /* Custom Scrollbar */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="typescript,react">
+        const { useState, useEffect, useMemo, useRef, forwardRef } = React;
+
+        // --- ICONS (Inline SVGs to replace lucide-react for file:// compatibility) ---
+        const IconBase = ({ size = 24, className = "", children, ...props }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>{children}</svg>
+        );
+        const Settings = (props) => <IconBase {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconBase>;
+        const Type = (props) => <IconBase {...props}><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></IconBase>;
+        const ImageIcon = (props) => <IconBase {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></IconBase>;
+        const Trash2 = (props) => <IconBase {...props}><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></IconBase>;
+        const Palette = (props) => <IconBase {...props}><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></IconBase>;
+        const Download = (props) => <IconBase {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></IconBase>;
+        const Save = (props) => <IconBase {...props}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></IconBase>;
+        const Upload = (props) => <IconBase {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></IconBase>;
+
+        // --- CONSTANTS ---
+        const THEMES = [
+            { id: 'shockwave', name: '⚡️ 冲击波', bgGradient: 'bg-gradient-to-br from-yellow-200 to-green-200', textColor: '#1a1a1a', accentColor: '#000000', fontFamily: 'Inter', type: 'modern' },
+            { id: 'diffuse', name: '🌈 弥散光', bgGradient: 'bg-gradient-to-tr from-purple-100 via-pink-100 to-blue-100', textColor: '#4a044e', accentColor: '#db2777', fontFamily: 'Inter', type: 'modern' },
+            { id: 'sticker', name: '🍭 贴纸风', bgGradient: 'bg-rose-50', textColor: '#881337', accentColor: '#fb7185', fontFamily: 'Inter', type: 'modern' },
+            { id: 'handwritten', name: '📝 手账感', bgGradient: 'bg-orange-50', textColor: '#431407', accentColor: '#ea580c', fontFamily: 'Ma Shan Zheng', type: 'handwritten' },
+            { id: 'cinematic', name: '🎬 电影感', bgGradient: 'bg-gray-900', textColor: '#f3f4f6', accentColor: '#fbbf24', fontFamily: 'Noto Serif SC', type: 'classic' },
+            { id: 'tech', name: '🔵 科技蓝', bgGradient: 'bg-slate-900', textColor: '#60a5fa', accentColor: '#3b82f6', fontFamily: 'JetBrains Mono', type: 'tech' },
+            { id: 'minimal', name: '⚪️ 极简白', bgGradient: 'bg-white', textColor: '#171717', accentColor: '#d4d4d4', fontFamily: 'Inter', type: 'modern' },
+            { id: 'memo', name: '🟡 备忘录', bgGradient: 'bg-yellow-100', textColor: '#422006', accentColor: '#ca8a04', fontFamily: 'Inter', type: 'modern' },
+            { id: 'geek', name: '🟢 极客黑', bgGradient: 'bg-black', textColor: '#22c55e', accentColor: '#166534', fontFamily: 'JetBrains Mono', type: 'tech' }
+        ];
+
+        const DEFAULT_CONTENT = {
+            title: '李笑来：最重要的任务永远只有一个',
+            subtitle: 'VOL.01 | 2025',
+            tag: '超级全！快收藏！',
+            body: `第82天 | 李笑来：最重要的任务永远只有一个\n《把时间当作朋友》\n\n判断一件事情是否真的重要，标准只有一个：是否对目标的实现有益。\n--- \n## 区分紧急和重要\n我们必须学会区分“紧急”和“重要”。大多数人往往被紧急的事情推着走，而忽略了真正重要的事情。\n\n## 什么是重要\n重要的事情通常不紧急，比如读书、健身、学习一项新技能。它们的效果不会立竿见影，但长期坚持会产生复利效应。\n\n## 专注力\n专注力是这个时代最稀缺的资源。保护你的专注力，就像保护你的钱包一样。不要让琐事占据你的大脑带宽。\n\n从今天开始，每天早上列出三件最重要的事情，然后优先完成它们。你会发现，效率提升的不仅仅是一点点。\n\n坚持做难而正确的事。`
+        };
+
+        const DEFAULT_CONFIG = {
+            themeId: 'shockwave',
+            titleSize: 32,
+            bodySize: 16,
+            customBgColor: '',
+            customTextColor: '',
+            customFontFamily: undefined,
+            coverImage: null,
+            overlayOpacity: 0.2,
+        };
+
+        const COMMON_FONTS = [
+            { name: '默认字体', value: '' },
+            { name: '思源宋体', value: 'Noto Serif SC' },
+            { name: '马善政毛笔', value: 'Ma Shan Zheng' },
+            { name: 'JetBrains Mono', value: 'JetBrains Mono' },
+            { name: 'Inter UI', value: 'Inter' },
+            { name: '微软雅黑', value: 'Microsoft YaHei' },
+            { name: '黑体', value: 'SimHei' },
+            { name: '楷体', value: 'KaiTi' },
+        ];
+
+        // --- CARD COMPONENT ---
+        const Card = forwardRef(({ config, content, theme, pageContent, pageIndex, totalPages }, ref) => {
+            const bgStyle = config.customBgColor ? { backgroundColor: config.customBgColor } : undefined;
+            const textStyle = config.customTextColor ? { color: config.customTextColor } : { color: theme.textColor };
+            const fontFamily = config.customFontFamily || theme.fontFamily;
+            const isCover = pageIndex === 0;
+
+            return (
+                <div 
+                    ref={ref}
+                    id={`card-${pageIndex}`}
+                    className={`relative w-[375px] aspect-[9/16] overflow-hidden flex flex-col shadow-2xl shrink-0 select-none ${!config.customBgColor ? theme.bgGradient : ''}`}
+                    style={{
+                        ...bgStyle,
+                        ...textStyle,
+                        fontFamily: `"${fontFamily}", sans-serif`
+                    }}
+                >
+                    {isCover && config.coverImage && (
+                        <div className="absolute inset-0 z-0">
+                            <img src={config.coverImage} alt="cover" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-white" style={{ opacity: config.overlayOpacity }} />
+                        </div>
+                    )}
+
+                    <div className={`relative z-10 h-full flex flex-col p-8 ${isCover ? 'justify-center' : ''}`}>
+                        {isCover && (
+                            <div className="flex flex-col h-full relative">
+                                <div className="absolute top-0 left-0 w-full flex justify-between items-start opacity-60">
+                                    <div className="w-8 h-8 border border-current rounded-full flex items-center justify-center">
+                                        <span className="text-xs font-bold">R</span>
+                                    </div>
+                                    <span className="text-xs font-mono tracking-widest">{content.subtitle}</span>
+                                </div>
+                                <div className="mt-auto mb-12">
+                                    <div className="mb-6">
+                                        <span className="inline-block px-3 py-1 text-xs font-bold tracking-wider border-2 border-current uppercase">
+                                            {content.tag}
+                                        </span>
+                                    </div>
+                                    <h1 className="font-bold leading-[1.15] mb-6 break-words tracking-tight" style={{ fontSize: `${config.titleSize * 1.5}px` }}>
+                                        {content.title}
+                                    </h1>
+                                    <div className="w-16 h-2 bg-current opacity-80 mb-4" />
+                                    <p className="text-sm opacity-80 font-medium max-w-[80%] leading-relaxed">
+                                        Visual Notes Collection<br/>Designed for Creators.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {!isCover && (
+                            <>
+                                <div className="mb-6 opacity-60 flex items-center gap-3 border-b border-current/20 pb-4">
+                                    <span className="text-xs font-bold whitespace-nowrap">{content.subtitle}</span>
+                                    <span className="w-px h-3 bg-current/50"/>
+                                    <span className="text-xs truncate font-medium">{content.title}</span>
+                                </div>
+                                <div className="flex-1 overflow-hidden">
+                                  {pageContent.split('\n').map((line, idx) => {
+                                      // Check for H2 style headings (##)
+                                      if (line.startsWith('## ')) {
+                                          return (
+                                              <h3 
+                                                  key={idx} 
+                                                  className="font-bold mt-4 mb-2 leading-snug break-words"
+                                                  style={{ 
+                                                      fontSize: `${config.bodySize * 1.25}px`,
+                                                      marginTop: idx === 0 ? '0' : '1em'
+                                                  }}
+                                              >
+                                                  {line.replace(/^##\s*/, '')}
+                                              </h3>
+                                          );
+                                      }
+                                      
+                                      // Regular paragraph content
+                                      return (
+                                          <p 
+                                            key={idx} 
+                                            style={{ 
+                                                fontSize: `${config.bodySize}px`, 
+                                                lineHeight: 1.8,
+                                                minHeight: line.trim() === '' ? `${config.bodySize}px` : 'auto'
+                                            }}
+                                            className={`${theme.type === 'modern' ? 'font-normal' : ''} whitespace-pre-wrap break-words`}
+                                          >
+                                            {line}
+                                          </p>
+                                      );
+                                  })}
+                                </div>
+                                <div className="mt-auto pt-6 flex justify-between items-end opacity-60">
+                                    <div className="flex items-center gap-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-current"/>
+                                        <span className="text-[10px] font-mono tracking-widest uppercase truncate max-w-[150px]">
+                                            {content.tag}
+                                        </span>
+                                    </div>
+                                    <span className="text-lg font-bold font-mono opacity-80">
+                                        {pageIndex}<span className="text-xs opacity-50 mx-1">/</span>{totalPages}
+                                    </span>
+                                </div>
+                            </>
+                        )}
+                        
+                        {theme.type === 'tech' && !isCover && (
+                            <div className="absolute bottom-20 right-0 p-4 opacity-10 pointer-events-none">
+                                <svg width="120" height="120" viewBox="0 0 100 100" fill="currentColor">
+                                    <path d="M10 10 H 90 V 90 H 10 Z" fill="none" stroke="currentColor" strokeWidth="1"/>
+                                    <path d="M20 20 H 80 V 80 H 20 Z" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+                                    <circle cx="50" cy="50" r="10" />
+                                </svg>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        });
+
+        // --- EDITOR SIDEBAR COMPONENT ---
+        const EditorSidebar = ({ config, setConfig, content, setContent, onDownload, isDownloading, availableThemes, onThemeSelect, onSaveTheme }) => {
+            const fileInputRef = useRef(null);
+            const fontInputRef = useRef(null);
+            const [showSaveDialog, setShowSaveDialog] = useState(false);
+            const [newThemeName, setNewThemeName] = useState('');
+
+            const handleImageUpload = (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setConfig(prev => ({ ...prev, coverImage: reader.result }));
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleFontUpload = async (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    try {
+                        const buffer = await file.arrayBuffer();
+                        const fontName = `CustomFont-${Date.now()}`;
+                        const fontFace = new FontFace(fontName, buffer);
+                        await fontFace.load();
+                        document.fonts.add(fontFace);
+                        setConfig(prev => ({ ...prev, customFontFamily: fontName }));
+                        alert(`字体 "${file.name}" 加载成功！`);
+                    } catch (err) {
+                        console.error("Font load error", err);
+                        alert("字体加载失败，请尝试其他文件 (推荐 .ttf, .woff)");
+                    }
+                }
+            };
+
+            const submitSaveTheme = () => {
+                if (newThemeName.trim()) {
+                    onSaveTheme(newThemeName);
+                    setNewThemeName('');
+                    setShowSaveDialog(false);
+                }
+            };
+
+            return (
+                <div className="w-full md:w-[420px] bg-white border-r border-gray-200 h-screen overflow-y-auto flex flex-col shadow-xl z-20">
+                    <div className="p-5 border-b border-gray-100 flex justify-between items-center sticky top-0 bg-white/95 backdrop-blur z-10">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">R</div>
+                            <div>
+                                <h1 className="font-bold text-gray-800 text-lg leading-none">RedNote Pro</h1>
+                                <span className="text-xs text-gray-400">Visual Clone Engineer</span>
+                            </div>
+                        </div>
+                        <button onClick={onDownload} disabled={isDownloading} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${isDownloading ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-gray-900 text-white hover:bg-black hover:shadow-lg active:scale-95'}`}>
+                            {isDownloading ? <span className="animate-pulse">Packaging...</span> : <><Download size={16} />打包下载</>}
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-8 pb-20">
+                        <section>
+                            <div className="flex justify-between items-center mb-4">
+                                <div className="flex items-center gap-2 text-sm font-bold text-gray-500 uppercase tracking-wider"><Palette size={14} />风格选择</div>
+                                <button onClick={() => setShowSaveDialog(true)} className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium"><Save size={12} /> 保存当前风格</button>
+                            </div>
+                            
+                            {showSaveDialog && (
+                                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100 animate-fade-in">
+                                    <label className="block text-xs font-bold text-blue-800 mb-2">为当前风格命名</label>
+                                    <div className="flex gap-2">
+                                        <input type="text" value={newThemeName} onChange={e => setNewThemeName(e.target.value)} placeholder="例如：我的红色主题" className="flex-1 px-2 py-1 text-sm border border-blue-200 rounded focus:outline-none focus:border-blue-500" autoFocus />
+                                        <button onClick={submitSaveTheme} className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700">保存</button>
+                                        <button onClick={() => setShowSaveDialog(false)} className="px-2 py-1 text-blue-400 hover:text-blue-600">取消</button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-3 gap-3">
+                                {availableThemes.map((theme) => {
+                                    const isSelected = config.themeId === theme.id;
+                                    return (
+                                        <button
+                                            key={theme.id}
+                                            onClick={() => onThemeSelect(theme)}
+                                            className={`relative h-12 rounded-lg text-xs font-medium transition-all duration-200 border-2 flex items-center justify-center overflow-hidden ${isSelected ? 'border-blue-600 ring-2 ring-blue-100 scale-[1.02]' : 'border-transparent hover:border-gray-200'} ${theme.id === 'minimal' ? 'bg-gray-50 text-gray-600' : ''}`}
+                                            style={{ backgroundColor: theme.savedConfig?.customBgColor || (theme.id === 'minimal' ? '#f9fafb' : undefined), color: theme.savedConfig?.customTextColor || (theme.id === 'minimal' ? undefined : (theme.id === 'geek' || theme.id === 'cinematic' || theme.id === 'tech' ? 'white' : 'black')) }}
+                                        >
+                                            {!theme.savedConfig?.customBgColor && <div className={`absolute inset-0 opacity-80 ${theme.bgGradient} -z-10`} />}
+                                            {theme.name}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        <section className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <div className="flex items-center gap-2 mb-4 text-sm font-bold text-gray-500 uppercase tracking-wider"><Type size={14} />外观微调</div>
+                            <div className="space-y-5">
+                                <div>
+                                    <label className="text-xs font-medium text-gray-600 mb-1.5 block">字体设置</label>
+                                    <div className="flex gap-2">
+                                        <select value={config.customFontFamily || ''} onChange={(e) => setConfig({ ...config, customFontFamily: e.target.value || undefined })} className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                            {COMMON_FONTS.map(f => <option key={f.value} value={f.value}>{f.name}</option>)}
+                                            {config.customFontFamily && !COMMON_FONTS.find(f => f.value === config.customFontFamily) && <option value={config.customFontFamily}>自定义上传字体</option>}
+                                        </select>
+                                        <button onClick={() => fontInputRef.current?.click()} className="px-3 py-1 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-blue-600 transition-colors" title="上传字体"><Upload size={14} /></button>
+                                        <input ref={fontInputRef} type="file" accept=".ttf,.otf,.woff,.woff2" className="hidden" onChange={handleFontUpload} />
+                                    </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">* 支持上传 .ttf, .otf, .woff 格式字体</p>
+                                </div>
+                                <div className="h-px bg-gray-200 my-2"></div>
+                                <div>
+                                    <div className="flex justify-between mb-1"><label className="text-xs font-medium text-gray-600">标题字号</label><span className="text-xs text-gray-400">{config.titleSize}px</span></div>
+                                    <input type="range" min="20" max="64" value={config.titleSize} onChange={(e) => setConfig({ ...config, titleSize: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                                </div>
+                                <div>
+                                    <div className="flex justify-between mb-1"><label className="text-xs font-medium text-gray-600">正文字号</label><span className="text-xs text-gray-400">{config.bodySize}px</span></div>
+                                    <input type="range" min="12" max="24" value={config.bodySize} onChange={(e) => setConfig({ ...config, bodySize: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 pt-2">
+                                    <div>
+                                        <label className="text-xs font-medium text-gray-600 mb-1 block">背景色</label>
+                                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1.5">
+                                            <input type="color" className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent" value={config.customBgColor || '#ffffff'} onChange={(e) => setConfig({...config, customBgColor: e.target.value})} />
+                                            <span className="text-xs text-gray-400">自定义</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-medium text-gray-600 mb-1 block">文字色</label>
+                                        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg p-1.5">
+                                            <input type="color" className="w-6 h-6 rounded cursor-pointer border-none p-0 bg-transparent" value={config.customTextColor || '#000000'} onChange={(e) => setConfig({...config, customTextColor: e.target.value})} />
+                                            <span className="text-xs text-gray-400">自定义</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section>
+                            <div className="flex items-center gap-2 mb-4 text-sm font-bold text-gray-500 uppercase tracking-wider"><ImageIcon size={14} />封面配图</div>
+                            <div className="space-y-4">
+                                <div className="flex gap-2">
+                                    <button onClick={() => fileInputRef.current?.click()} className="flex-1 h-10 border border-dashed border-gray-300 rounded-lg flex items-center justify-center text-sm text-gray-600 hover:bg-gray-50 transition-colors"><ImageIcon size={16} className="mr-2 text-gray-400" />上传图片</button>
+                                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                                    {config.coverImage && <button onClick={() => setConfig({...config, coverImage: null})} className="w-10 h-10 border border-red-100 bg-red-50 text-red-500 rounded-lg flex items-center justify-center hover:bg-red-100"><Trash2 size={16} /></button>}
+                                </div>
+                                {config.coverImage && (
+                                    <div>
+                                        <div className="flex justify-between mb-1"><label className="text-xs font-medium text-gray-600">遮罩浓度</label></div>
+                                        <input type="range" min="0" max="1" step="0.1" value={config.overlayOpacity} onChange={(e) => setConfig({ ...config, overlayOpacity: Number(e.target.value) })} className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 mb-2 text-sm font-bold text-gray-500 uppercase tracking-wider"><Settings size={14} />内容编辑</div>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">主标题</label>
+                                    <input type="text" value={content.title} onChange={(e) => setContent({ ...content, title: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="输入大标题" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-gray-400 mb-1 block">期数/日期</label>
+                                        <input type="text" value={content.subtitle} onChange={(e) => setContent({ ...content, subtitle: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="VOL.01" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 mb-1 block">标签/作者</label>
+                                        <input type="text" value={content.tag} onChange={(e) => setContent({ ...content, tag: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="作者名" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">正文内容 (自动分页)</label>
+                                    <textarea value={content.body} onChange={(e) => setContent({ ...content, body: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm h-48 focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed resize-none" placeholder="在此输入正文..." />
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+        const App = () => {
+            const [availableThemes, setAvailableThemes] = useState(THEMES);
+            const [config, setConfig] = useState(DEFAULT_CONFIG);
+            const [content, setContent] = useState(DEFAULT_CONTENT);
+            const [isDownloading, setIsDownloading] = useState(false);
+            const cardsRef = useRef([]);
+
+            const currentTheme = availableThemes.find(t => t.id === config.themeId) || availableThemes[0];
+
+            const handleThemeSelect = (theme) => {
+                if (theme.savedConfig) {
+                    setConfig(prev => ({ ...prev, ...theme.savedConfig, themeId: theme.id }));
+                } else {
+                    setConfig(prev => ({ ...prev, themeId: theme.id, customBgColor: '', customTextColor: '', customFontFamily: undefined }));
+                }
+            };
+
+            const handleSaveTheme = (name) => {
+                const newThemeId = `custom-${Date.now()}`;
+                const savedConfigSnapshot = {
+                    customBgColor: config.customBgColor,
+                    customTextColor: config.customTextColor,
+                    customFontFamily: config.customFontFamily,
+                    titleSize: config.titleSize,
+                    bodySize: config.bodySize,
+                };
+                const newTheme = {
+                    id: newThemeId,
+                    name: name,
+                    bgGradient: config.customBgColor ? '' : currentTheme.bgGradient,
+                    textColor: config.customTextColor || currentTheme.textColor,
+                    accentColor: currentTheme.accentColor,
+                    fontFamily: config.customFontFamily || currentTheme.fontFamily,
+                    type: currentTheme.type,
+                    savedConfig: savedConfigSnapshot
+                };
+                setAvailableThemes(prev => [...prev, newTheme]);
+                setConfig(prev => ({ ...prev, themeId: newThemeId }));
+            };
+
+            const pages = useMemo(() => {
+                const linesPerPage = Math.floor(420 / (config.bodySize * 1.8));
+                const allLines = content.body.split('\n');
+                const contentPages = [];
+                let currentChunk = [];
+                let linesInCurrentPage = 0;
+
+                const getVisualLines = (text, isHeading) => {
+                    if (!text) return 1;
+                    if (isHeading) return 3;
+                    const charsPerLine = Math.floor(310 / (config.bodySize * 0.7)); 
+                    return Math.max(1, Math.ceil(text.length / charsPerLine));
+                };
+
+                allLines.forEach(line => {
+                    if (line.trim() === '---' || line.trim() === '***') {
+                        if (currentChunk.length > 0) {
+                            contentPages.push(currentChunk.join('\n'));
+                            currentChunk = [];
+                            linesInCurrentPage = 0;
+                        }
+                        return;
+                    }
+
+                    const isHeading = line.startsWith('## ');
+                    const visualLines = getVisualLines(line, isHeading);
+                    
+                    if (linesInCurrentPage + visualLines > linesPerPage && currentChunk.length > 0) {
+                        contentPages.push(currentChunk.join('\n'));
+                        currentChunk = [line];
+                        linesInCurrentPage = visualLines;
+                    } else {
+                        currentChunk.push(line);
+                        linesInCurrentPage += visualLines;
+                    }
+                });
+                
+                if (currentChunk.length > 0) contentPages.push(currentChunk.join('\n'));
+                return [null, ...(contentPages.length > 0 ? contentPages : [''])];
+            }, [content.body, config.bodySize]);
+
+            const handleDownload = async () => {
+                setIsDownloading(true);
+                try {
+                    await document.fonts.ready;
+                    
+                    const zip = new JSZip();
+                    for (let i = 0; i < pages.length; i++) {
+                        const cardId = `card-${i}`;
+                        const cardElement = document.getElementById(cardId);
+                        if (cardElement) {
+                            // Using html-to-image for better WYSIWYG results
+                            const dataUrl = await htmlToImage.toPng(cardElement, {
+                                quality: 1.0,
+                                pixelRatio: 3, // 3x resolution for high quality
+                                style: {
+                                    boxShadow: 'none', // Prevent double shadows or artifacts
+                                    transform: 'none'
+                                }
+                            });
+                            
+                            // dataUrl is "data:image/png;base64,..."
+                            const base64Data = dataUrl.split(',')[1];
+                            zip.file(`rednote-card-${i + 1}.png`, base64Data, {base64: true});
+                        }
+                    }
+                    const content = await zip.generateAsync({ type: 'blob' });
+                    saveAs(content, 'rednote-cards.zip');
+                } catch (error) {
+                    console.error("Export failed", error);
+                    alert("导出失败，请重试 (如果是本地运行，请确保图片没有跨域限制)");
+                } finally {
+                    setIsDownloading(false);
+                }
+            };
+
+            return (
+                <div className="flex h-screen w-full overflow-hidden bg-gray-100 font-sans">
+                    <EditorSidebar
+                        config={config} setConfig={setConfig}
+                        content={content} setContent={setContent}
+                        onDownload={handleDownload} isDownloading={isDownloading}
+                        availableThemes={availableThemes} onThemeSelect={handleThemeSelect} onSaveTheme={handleSaveTheme}
+                    />
+                    <main className="flex-1 overflow-y-auto p-8 relative">
+                        <div className="flex flex-wrap justify-center gap-8 pb-20">
+                            {pages.map((pageContent, index) => (
+                                <div key={index} className="flex flex-col gap-2">
+                                    <span className="text-xs text-gray-400 font-mono text-center">{index === 0 ? "COVER" : `PAGE ${index}`}</span>
+                                    <Card
+                                        ref={el => cardsRef.current[index] = el}
+                                        pageIndex={index}
+                                        totalPages={pages.length - 1}
+                                        config={config}
+                                        content={content}
+                                        theme={currentTheme}
+                                        pageContent={pageContent || ''}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                        <div className="fixed bottom-6 right-8 pointer-events-none md:hidden">
+                            <div className="bg-black/80 text-white px-4 py-2 rounded-full text-xs shadow-lg backdrop-blur">Scroll for more pages</div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

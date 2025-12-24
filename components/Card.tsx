@@ -59,7 +59,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({
         
         {/* === COVER PAGE LAYOUT === */}
         {isCover && (
-          <div className="animate-fade-in flex flex-col h-full relative">
+          <div className="flex flex-col h-full relative">
             
             {/* Top Badge (Optional visual anchor) */}
             <div className="absolute top-0 left-0 w-full flex justify-between items-start opacity-60">
@@ -108,13 +108,39 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({
               </div>
 
               {/* Body Content */}
-              <div className="flex-1 whitespace-pre-wrap leading-relaxed overflow-hidden">
-                <p 
-                  style={{ fontSize: `${config.bodySize}px`, lineHeight: 1.8 }}
-                  className={theme.type === 'modern' ? 'font-normal' : ''}
-                >
-                  {pageContent}
-                </p>
+              <div className="flex-1 overflow-hidden">
+                {pageContent.split('\n').map((line, idx) => {
+                    // Check for H2 style headings (##)
+                    if (line.startsWith('## ')) {
+                        return (
+                            <h3 
+                                key={idx} 
+                                className="font-bold mt-4 mb-2 leading-snug break-words"
+                                style={{ 
+                                    fontSize: `${config.bodySize * 1.25}px`,
+                                    marginTop: idx === 0 ? '0' : '1em'
+                                }}
+                            >
+                                {line.replace(/^##\s*/, '')}
+                            </h3>
+                        );
+                    }
+                    
+                    // Regular paragraph content
+                    return (
+                        <p 
+                          key={idx} 
+                          style={{ 
+                              fontSize: `${config.bodySize}px`, 
+                              lineHeight: 1.8,
+                              minHeight: line.trim() === '' ? `${config.bodySize}px` : 'auto'
+                          }}
+                          className={`${theme.type === 'modern' ? 'font-normal' : ''} whitespace-pre-wrap break-words`}
+                        >
+                          {line}
+                        </p>
+                    );
+                })}
               </div>
 
               {/* Footer / Pagination */}
@@ -132,7 +158,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(({
            </>
         )}
 
-        {/* Decorative Watermark (Optional based on theme) - Only on Content Pages to keep Cover clean? Or both? */}
+        {/* Decorative Watermark (Optional based on theme) */}
         {theme.type === 'tech' && !isCover && (
           <div className="absolute bottom-20 right-0 p-4 opacity-10 pointer-events-none">
             <svg width="120" height="120" viewBox="0 0 100 100" fill="currentColor">
